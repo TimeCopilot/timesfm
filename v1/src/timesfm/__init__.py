@@ -13,21 +13,15 @@
 # limitations under the License.
 """TimesFM init file."""
 
-print(
-    " See https://github.com/google-research/timesfm/blob/master/README.md for updated APIs."
-)
 from .timesfm_base import (
     freq_map,
     TimesFmCheckpoint,
     TimesFmHparams,
     TimesFmBase,
 )
-import sys
 
 try:
     from .timesfm_jax import TimesFmJax as TimesFm
     from . import data_loader
-
-    print(f"Loaded Jax TimesFM, likely because python version is {sys.version}.")
 except Exception as _:
     from .timesfm_torch import TimesFmTorch as TimesFm

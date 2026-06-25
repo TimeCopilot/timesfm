@@ -13,15 +13,16 @@
 # limitations under the License.
 """TimesFM models."""
 
+import dataclasses
 import logging
 import math
 import os
 from pathlib import Path
-from typing import Dict, Optional, Sequence, Union
+from typing import Optional, Sequence, Union
 
 import numpy as np
 import torch
-from huggingface_hub import ModelHubMixin, hf_hub_download
+from huggingface_hub import PyTorchModelHubMixin, hf_hub_download
 from safetensors.torch import load_file, save_file
 from torch import nn
 
@@ -84,7 +85,7 @@ class TimesFM_2p5_200M_torch_module(nn.Module):
     if "torch_compile" in kwargs:
       torch_compile = kwargs["torch_compile"]
     if torch_compile:
-      print("Compiling model...")
+      logging.info("Compiling model...")
       self = torch.compile(self)
 
     self.eval()
@@ -256,74 +257,110 @@ class TimesFM_2p5_200M_torch_module(nn.Module):
       to_concat = [t_pf[:, -1, ...]]
       if t_ar is not None:
         to_concat.append(t_ar.reshape(1, -1, self.q))
-      torch_forecast = torch.cat(to_concat, dim=1)[..., :horizon]
+      torch_forecast = torch.cat(to_concat, dim=1)[:, :horizon, :]
       torch_forecast = torch_forecast.squeeze(0)
       outputs.append(torch_forecast.detach().cpu().numpy())
     return outputs
 
 
-class TimesFM_2p5_200M_torch(timesfm_2p5_base.TimesFM_2p5, ModelHubMixin):
+class TimesFM_2p5_200M_torch(
+  timesfm_2p5_base.TimesFM_2p5,
+  PyTorchModelHubMixin,
+  library_name="timesfm",
+  repo_url="https://github.com/google-research/timesfm",
+  paper_url="https://arxiv.org/abs/2310.10688",
+  docs_url="https://github.com/google-research/timesfm",
+  license="apache-2.0",
+  pipeline_tag="time-series-forecasting",
+  tags=["pytorch", "timeseries", "forecasting", "timesfm-2.5"],
+):
   """PyTorch implementation of TimesFM 2.5 with 200M parameters."""
 
-  model: nn.Module = TimesFM_2p5_200M_torch_module()
+  DEFAULT_REPO_ID = "google/timesfm-2.5-200m-pytorch"
+  WEIGHTS_FILENAME = "model.safetensors"
+
+  def __init__(
+    self,
+    torch_compile: bool = True,
+    config: Optional[dict] = None,
+    **kwargs,
+  ):
+    self.model = TimesFM_2p5_200M_torch_module()
+    self.torch_compile = torch_compile
+    if config is not None:
+      self._hub_mixin_config = config
+
+  def load_checkpoint(self, path: str, **kwargs):
+    """Loads a TimesFM model from a checkpoint directory or file."""
+    if os.path.isdir(path):
+      model_file_path = os.path.join(path, self.WEIGHTS_FILENAME)
+      if not os.path.exists(model_file_path):
+        raise FileNotFoundError(
+          f"{self.WEIGHTS_FILENAME} not found in directory {path}"
+        )
+    else:
+      model_file_path = path
+
+    self.model.load_checkpoint(model_file_path, **kwargs)
 
   @classmethod
   def _from_pretrained(
     cls,
     *,
-    model_id: str,
+    model_id: str = DEFAULT_REPO_ID,
     revision: Optional[str],
     cache_dir: Optional[Union[str, Path]],
-    force_download: bool,
-    proxies: Optional[Dict],
-    resume_download: Optional[bool],
+    force_download: bool = False,
     local_files_only: bool,
-    token: Optional[str],
+    token: Optional[Union[str, bool]],
+    config: Optional[dict] = None,
     **model_kwargs,
   ):
     """
     Loads a PyTorch safetensors TimesFM model from a local path or the Hugging
     Face Hub. This method is the backend for the `from_pretrained` class
-    method provided by `ModelHubMixin`.
+    method provided by `PyTorchModelHubMixin`.
     """
-    # Create an instance of the model wrapper class.
-    instance = cls(**model_kwargs)
-
     # Determine the path to the model weights.
     model_file_path = ""
     if os.path.isdir(model_id):
       logging.info("Loading checkpoint from local directory: %s", model_id)
-      model_file_path = os.path.join(model_id, "model.safetensors")
+      model_file_path = os.path.join(model_id, cls.WEIGHTS_FILENAME)
       if not os.path.exists(model_file_path):
-        raise FileNotFoundError(f"model.safetensors not found in directory {model_id}")
+        raise FileNotFoundError(
+          f"{cls.WEIGHTS_FILENAME} not found in directory {model_id}"
+        )
     else:
       logging.info("Downloading checkpoint from Hugging Face repo %s", model_id)
       model_file_path = hf_hub_download(
         repo_id=model_id,
-        filename="model.safetensors",
+        filename=cls.WEIGHTS_FILENAME,
         revision=revision,
         cache_dir=cache_dir,
         force_download=force_download,
-        proxies=proxies,
-        resume_download=resume_download,
         token=token,
         local_files_only=local_files_only,
       )
 
+    # Create an instance of the model wrapper class.
+    instance = cls(config=config, **model_kwargs)
+
     logging.info("Loading checkpoint from: %s", model_file_path)
     # Load the weights into the model.
-    instance.model.load_checkpoint(model_file_path, **model_kwargs)
+    instance.load_checkpoint(
+      model_file_path, torch_compile=instance.torch_compile
+    )
     return instance
 
   def _save_pretrained(self, save_directory: Union[str, Path]):
     """
     Saves the model's state dictionary to a safetensors file. This method
-    is called by the `save_pretrained` method from `ModelHubMixin`.
+    is called by the `save_pretrained` method from `PyTorchModelHubMixin`.
     """
     if not os.path.exists(save_directory):
       os.makedirs(save_directory)
 
-    weights_path = os.path.join(save_directory, "model.safetensors")
+    weights_path = os.path.join(save_directory, self.WEIGHTS_FILENAME)
     save_file(self.model.state_dict(), weights_path)
 
   def compile(self, forecast_config: configs.ForecastConfig, **kwargs) -> None:
@@ -349,7 +386,7 @@ class TimesFM_2p5_200M_torch(timesfm_2p5_base.TimesFM_2p5, ModelHubMixin):
         self.model.p,
         new_context := math.ceil(fc.max_context / self.model.p) * self.model.p,
       )
-      fc.max_context = new_context
+      fc = dataclasses.replace(fc, max_context=new_context)
     if fc.max_horizon % self.model.o != 0:
       logging.info(
         "When compiling, max horizon needs to be multiple of the output patch"
@@ -357,7 +394,7 @@ class TimesFM_2p5_200M_torch(timesfm_2p5_base.TimesFM_2p5, ModelHubMixin):
         self.model.o,
         new_horizon := math.ceil(fc.max_horizon / self.model.o) * self.model.o,
       )
-      fc.max_horizon = new_horizon
+      fc = dataclasses.replace(fc, max_horizon=new_horizon)
     if fc.max_context + fc.max_horizon > self.model.config.context_limit:
       raise ValueError(
         "Context + horizon must be less than the context limit."
