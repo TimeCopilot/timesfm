@@ -2,8 +2,11 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import pytest
 
-from timesfm.data_loader import TimeSeriesdata
+pytest.importorskip("tensorflow")
+
+from timesfm_v1.data_loader import TimeSeriesdata
 
 
 def test_train_gen_respects_batch_size_when_permute_is_false(tmp_path: Path) -> None:

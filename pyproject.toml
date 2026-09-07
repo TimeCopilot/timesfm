@@ -47,11 +47,14 @@ Repository = "https://github.com/google-research/timesfm"
 [dependency-groups]
 dev = ["pytest>=8.3.2"]
 
+[tool.pytest.ini_options]
+testpaths = ["tests", "v1/tests", "src/timesfm3"]
+
 [tool.hatch.build.targets.sdist]
 include = [
     "src/timesfm",
     "src/timesfm3",
-    "v1/src/timesfm",
+    "src/timesfm_v1",
     "LICENSE",
 ]
 
@@ -59,14 +62,14 @@ include = [
 include = [
     "src/timesfm",
     "src/timesfm3",
-    "v1/src/timesfm",
+    "src/timesfm_v1",
     "LICENSE",
 ]
 
 [tool.hatch.build.targets.wheel.sources]
 "src/timesfm" = "timesfm"
 "src/timesfm3" = "timesfm3"
-"v1/src/timesfm" = "timesfm_v1"
+"src/timesfm_v1" = "timesfm_v1"
 
 [tool.ruff]
 line-length = 88

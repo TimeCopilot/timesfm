@@ -21,6 +21,10 @@ import pytest
 
 import timesfm_v1
 
+pytestmark = pytest.mark.skip(
+    reason="Integration test requiring HuggingFace model download."
+)
+
 
 def create_sample_dataframe(
     start_date: datetime, end_date: datetime, freq: str = "D"

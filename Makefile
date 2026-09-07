@@ -33,3 +33,6 @@ after-publish-test:
 # All steps
 release: clean build test-wheel test-sdist publish after-publish-test
 
+test:
+	uv run pytest
+
