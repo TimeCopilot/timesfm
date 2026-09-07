@@ -1,6 +1,6 @@
 [project]
 name = "timecopilot-timesfm"
-version = "0.3.0"
+version = "0.4.0"
 description = "Open weights time-series foundation model from Google Research."
 requires-python = ">=3.10"
 readme = "README.md"
@@ -23,7 +23,7 @@ dependencies = [
     "numpy>=1.26.4",
     "pandas>=2.0.0",
     "utilsforecast>=0.1.10",
-    "huggingface_hub>=0.23.0",
+    "huggingface_hub>=0.28.0",
     "scikit-learn>=1.2.2",
     "typer>=0.12.3",
     "wandb>=0.17.5",
@@ -50,6 +50,7 @@ dev = ["pytest>=8.3.2"]
 [tool.hatch.build.targets.sdist]
 include = [
     "src/timesfm",
+    "src/timesfm3",
     "v1/src/timesfm",
     "LICENSE",
 ]
@@ -57,18 +58,19 @@ include = [
 [tool.hatch.build.targets.wheel]
 include = [
     "src/timesfm",
+    "src/timesfm3",
     "v1/src/timesfm",
     "LICENSE",
 ]
 
 [tool.hatch.build.targets.wheel.sources]
 "src/timesfm" = "timesfm"
+"src/timesfm3" = "timesfm3"
 "v1/src/timesfm" = "timesfm_v1"
 
 [tool.ruff]
 line-length = 88
 indent-width = 2
-
 
 [build-system]
 requires = ["hatchling"]

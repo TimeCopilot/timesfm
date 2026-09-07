@@ -19,7 +19,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-import timesfm
+import timesfm_v1
 
 
 def create_sample_dataframe(
@@ -50,7 +50,7 @@ def test_timesfm_forecast_on_df(
     prediction_length: int,
     freq: str,
 ) -> None:
-    model = timesfm.TimesFm(
+    model = timesfm_v1.TimesFm(
         context_len=context_length,
         horizon_len=prediction_length,
         input_patch_len=32,

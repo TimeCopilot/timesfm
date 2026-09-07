@@ -4,7 +4,7 @@
 PYTHON_VERSION = 3.13
 
 # Import statement to test
-IMPORT_STATEMENT = import timesfm; import timesfm_v1
+IMPORT_STATEMENT = import timesfm; import timesfm_v1; import timesfm3
 
 clean:
 	rm -rf *.egg-info
